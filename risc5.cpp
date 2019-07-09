@@ -1,19 +1,19 @@
 #include <iostream>
 #include <stdlib.h>
 #include <queue>
-#include<cstring>
 using namespace std;
 const int memspace = 0x3fffff;
 int pc;
 int r[32];
 unsigned char memory[memspace];
-int offset,opcode,rs2_index,rs1_index;
+int offset, opcode, rs2_index, rs1_index;
 int rs1, rs2, res, rd_index, inst, imm, func3, func7;
 int rlock[32], pclock;
 bool memlock[memspace];
 int ifdone, iddone, exdone, memdone;
-queue<int> idinst, exop, memop, wbop, exf3, exf7, memf3, rd, eximm, memres, wbres;
-int used=1;
+queue<int>  eximm, memres, wbres;
+int exop, memop, wbop, exf3, exf7, memf3, rd;
+int rsused = 1, rdused = 1;
 int signedextend(int x, int bits)
 {
 	if (x >> (bits - 1) == 1)
@@ -24,13 +24,6 @@ int signedextend(int x, int bits)
 }
 void read()
 {
-	/*FILE *file;
-	file = fopen("testdata.data", "r");
-	if (file == NULL)
-	{
-		cout << "打开文件错误!" << endl;
-		exit(0);
-	}*/
 	char ch;
 	int a = 0;
 	int b = 0;
@@ -41,7 +34,6 @@ void read()
 		s[i] = s[i - 1] * 16;
 	}
 	while (cin.get(ch))
-		//while(fread(&ch,sizeof(unsigned char),1,file)==1)
 	{
 		if (ch == '@')
 		{
@@ -49,7 +41,6 @@ void read()
 			for (int i = 7; i >= 0; --i)
 			{
 				cin.get(ch);
-				//fread(&ch, sizeof(unsigned char), 1, file);
 				if (ch >= '0'&&ch <= '9')
 					tmp += (ch - '0') * s[i];
 				else
@@ -99,20 +90,14 @@ void IF()
 {
 	if (pclock != 0 || ifdone == 1)
 		return;
-	
+
 	inst = 0;
-	for (int i = 0; i < 4; ++i)
+	for (int i = 3; i >= 0; --i)
 	{
 		if (memlock[pc + i] != 0)
 			return;
-		int k = 1;
-		for (int j = 1; j <= i; ++j)
-			k *= 256;
-		inst += k * (int)memory[pc + i];
+		inst += (int)memory[pc + i] << (8 * i);
 	}
-//	cout << hex << pc << '\n';
-	if (pc == 0x10d8)
-		pc += 0;
 	ifdone++;
 	opcode = inst & 127;
 	if (opcode == 99 || opcode == 103 || opcode == 111)//99_b-type 103_jalr 111_jal
@@ -120,14 +105,12 @@ void IF()
 		pclock++;
 	}
 	pc += 4;
-	idinst.push(inst);
 	return;
 }
 void ID()
 {
-	if (ifdone == 0||iddone==1)
+	if (ifdone == 0 || iddone == 1)
 		return;
-	inst = idinst.front();
 	opcode = inst & 127;
 	rlock[0] = 0;
 	switch (opcode)//读取操作码
@@ -137,54 +120,54 @@ void ID()
 		func3 = (inst >> 12) & 7;
 		rs2_index = (inst >> 20) & 31;
 		rs1_index = (inst >> 15) & 31;
-		if (rlock[rs2_index] != 0 || rlock[rs1_index] != 0||used==0)//check if locked
+		if (rlock[rs2_index] != 0 || rlock[rs1_index] != 0 || rsused == 0 || rdused == 0)//check if locked
 		{
 			return;
 		}
 
 		ifdone--;
 		iddone++;
-		idinst.pop();
 
 		rs1 = r[rs1_index];
 		rs2 = r[rs2_index];
-		used = 0;
+		rsused = 0;
 		rd_index = (inst >> 7) & 31;
 		rlock[rd_index]++;
-		rd.push(rd_index);
+		rd = rd_index;
+		rdused = 0;
 
 		func7 = (inst >> 25) & 127;
-		exf3.push(func3);
-		exf7.push(func7);
-		exop.push(opcode);
+		exf3 = func3;
+		exf7 = func7;
+		exop = opcode;
 		return;
 	}
 	case 3:case 103://i-type
 	{
 		imm = (inst >> 20) & 0xfff;
 		rs1_index = (inst >> 15) & 31;
-		if (rlock[rs1_index] != 0||used==0)//check if locked
+		if (rlock[rs1_index] != 0 || rsused == 0 || rdused == 0)//check if locked
 		{
 			return;
 		}
 
 		ifdone--;
 		iddone++;
-		idinst.pop();
 
 		rs1 = r[rs1_index];
-		used = 0;
+		rsused = 0;
 		rd_index = (inst >> 7) & 31;
 		rlock[rd_index]++;
-		rd.push(rd_index);
+		rd = rd_index;
+		rdused = 0;
 
 		func3 = (inst >> 12) & 7;
-		exf3.push(func3);
+		exf3 = func3;
 
 		imm = signedextend(imm, 12);
 		eximm.push(imm);
 
-		exop.push(opcode);
+		exop = opcode;
 		return;
 	}
 	case 35://s-type
@@ -193,25 +176,24 @@ void ID()
 		imm = (imm << 5) | ((inst >> 7) & 31);
 		rs2_index = (inst >> 20) & 31;
 		rs1_index = (inst >> 15) & 31;
-		if (rlock[rs2_index] != 0 || rlock[rs1_index] != 0||used==0)//check if locked
+		if (rlock[rs2_index] != 0 || rlock[rs1_index] != 0 || rsused == 0)//check if locked
 		{
 			return;
 		}
 
 		ifdone--;
 		iddone++;
-		idinst.pop();
 
 		rs1 = r[rs1_index];
 		rs2 = r[rs2_index];
-		used = 0;
+		rsused = 0;
 		func3 = (inst >> 12) & 7;
-		exf3.push(func3);
+		exf3 = func3;
 
 		imm = signedextend(imm, 12);
 		eximm.push(imm);
 
-		exop.push(opcode);
+		exop = opcode;
 		return;
 	}
 	case 99://b-type
@@ -231,15 +213,14 @@ void ID()
 
 		ifdone--;
 		iddone++;
-		idinst.pop();
 
 		rs1 = r[rs1_index];
 		rs2 = r[rs2_index];
-		used = 0;
+		rsused = 0;
 		func3 = (inst >> 12) & 7;
-		exf3.push(func3);
+		exf3 = func3;
 
-		exop.push(opcode);
+		exop = opcode;
 
 		eximm.push(imm);
 
@@ -247,23 +228,28 @@ void ID()
 	}
 	case 55:case 23://u-type
 	{
+		if (rdused == 0)
+			return;
 		imm = inst >> 12;
 		imm <<= 12;
 
 		ifdone--;
 		iddone++;
-		idinst.pop();
 
 		rd_index = (inst >> 7) & 31;
-		rd.push(rd_index);
+		rd = rd_index;
 		rlock[rd_index]++;
-		exop.push(opcode);
+		rdused = 0;
+
+		exop = opcode;
 		eximm.push(imm);
 
 		return;
 	}
 	case 111://j-type
 	{
+		if (rdused == 0)
+			return;
 		imm = ((inst >> 31) & 1);
 		imm = (imm << 8) + ((inst >> 12) & 255);
 		imm = (imm << 1) + ((inst >> 20) & 1);
@@ -271,15 +257,15 @@ void ID()
 		imm <<= 1;
 		ifdone--;
 		iddone++;
-		idinst.pop();
 		rd_index = (inst >> 7) & 31;
 		rlock[rd_index]++;
-		rd.push(rd_index);
+		rd = rd_index;
+		rdused = 0;
 
 		imm = signedextend(imm, 21);
 		eximm.push(imm);
 
-		exop.push(opcode);
+		exop = opcode;
 		return;
 	}
 	case 19://?-type
@@ -289,53 +275,52 @@ void ID()
 		{
 			rs2 = (inst >> 20) & 31;//shamt
 			rs1_index = (inst >> 15) & 31;
-			if ( rlock[rs1_index] != 0||used==0)//check if locked
+			if (rlock[rs1_index] != 0 || rsused == 0 | rdused == 0)//check if locked
 			{
 				return;
 			}
 
 			ifdone--;
 			iddone++;
-			idinst.pop();
 
 			rs1 = r[rs1_index];
-			used = 0;
+			rsused = 0;
 			rd_index = (inst >> 7) & 31;
 			rlock[rd_index]++;
-			rd.push(rd_index);
-
+			rd = rd_index;
+			rdused = 0;
 			func7 = (inst >> 25) & 127;
-			exf3.push(func3);
+			exf3 = func3;
 
-			exf7.push(func7);
-			exop.push(opcode);
+			exf7 = func7;
+			exop = opcode;
 			return;
 		}
 		else//i-type
 		{
 			imm = inst >> 20;
-			rs1_index= (inst >> 15) & 31;
-			if (rlock[rs1_index] != 0 || used == 0)//check if locked
+			rs1_index = (inst >> 15) & 31;
+			if (rlock[rs1_index] != 0 || rsused == 0 || rdused == 0)//check if locked
 			{
 				return;
 			}
 
 			ifdone--;
 			iddone++;
-			idinst.pop();
 
 			rs1 = r[rs1_index];
 			rd_index = (inst >> 7) & 31;
 			rlock[rd_index]++;
-			rd.push(rd_index);
-			used = 0;
+			rd = rd_index;
+			rdused = 0;
+			rsused = 0;
 			func3 = (inst >> 12) & 7;
-			exf3.push(func3);
-			
+			exf3 = func3;
+
 			imm = signedextend(imm, 12);
 			eximm.push(imm);
 
-			exop.push(opcode);
+			exop = opcode;
 			return;
 		}
 	}
@@ -346,34 +331,28 @@ void ID()
 }
 void EX()
 {
-	if (iddone == 0||exdone==1)
+	if (iddone == 0 || exdone == 1)
 		return;
 	iddone--;
 	exdone++;
-	opcode = exop.front() & 127;
-	exop.pop();
-	memop.push(opcode);
-	switch (opcode)
+	memop = exop;
+	switch (exop)
 	{
 	case 51://r-type
 	{
-		func3 = exf3.front();
-		exf3.pop();
-		func7 = exf7.front();
-		exf7.pop();
-		used = 1;
-		switch (func3)
+		rsused = 1;
+		switch (exf3)
 		{
 		case 0://add and sub
 		{
-			
-			if (func7 == 0)//add
+
+			if (exf7 == 0)//add
 			{
 				res = rs1 + rs2;
 				wbres.push(res);
 				return;
 			}
-			if (func7 == 32)//sub
+			if (exf7 == 32)//sub
 			{
 				res = rs1 - rs2;
 				wbres.push(res);
@@ -408,15 +387,13 @@ void EX()
 		}
 		case 5://srl and sra
 		{
-			func7 = exf7.front();
-			exf7.pop();
-			if (func7 == 0)//srl
+			if (exf7 == 0)//srl
 			{
 				res = (unsigned)rs1 >> (unsigned)(rs2 & 31);
 				wbres.push(res);
 				return;
 			}
-			if (func7 == 32)//sra
+			if (exf7 == 32)//sra
 			{
 				res = rs1 >> (rs2 & 31);
 				wbres.push(res);
@@ -445,7 +422,6 @@ void EX()
 	}
 	case 103://(i-type)jalr
 	{
-		exf3.pop();
 		imm = eximm.front();
 		eximm.pop();
 		res = pc;
@@ -461,29 +437,26 @@ void EX()
 		eximm.pop();
 		res = rs1 + imm;
 		memres.push(res);
-		func3 = exf3.front();
-		exf3.pop();
-		memf3.push(func3);
+
+		memf3 = exf3;
 		return;
 	}
 	case 35://(s-type)sb sh sw
 	{
 		imm = eximm.front();
 		eximm.pop();
-		func3 = exf3.front();
-		exf3.pop();
-		memf3.push(func3);
+		memf3 = exf3;
 		res = rs1 + imm;
 		memres.push(res);
-		if (func3 == 0)
+		if (exf3 == 0)
 		{
 			memlock[res] = 1;
 		}
-		else if (func3 == 1)
+		else if (exf3 == 1)
 		{
 			memlock[res] = memlock[res + 1] = 1;
 		}
-		else if (func3 == 2)
+		else if (exf3 == 2)
 		{
 			memlock[res] = memlock[res + 1] = memlock[res + 2] = memlock[res + 3] = 1;
 		}
@@ -494,10 +467,8 @@ void EX()
 		imm = eximm.front();
 		eximm.pop();
 		pclock--;
-		func3 = exf3.front();
-		exf3.pop();
-		used = 1;
-		switch (func3)
+		rsused = 1;
+		switch (exf3)
 		{
 		case 0://beq
 		{
@@ -581,10 +552,8 @@ void EX()
 	case 19://with constant
 	{
 
-		func3 = exf3.front();
-		exf3.pop();
-		used = 1;
-		switch (func3)
+		rsused = 1;
+		switch (exf3)
 		{
 		case 0://addi
 		{
@@ -636,23 +605,19 @@ void EX()
 		}
 		case 1://slli
 		{
-			func7 = exf7.front();
-			exf7.pop();
 			res = rs1 << rs2;//(not actuall rs2)
 			wbres.push(res);
 			return;
 		}
 		case 5:
 		{
-			func7 = exf7.front();
-			exf7.pop();
-			if (func7 == 0)//srli
+			if (exf7 == 0)//srli
 			{
 				res = (unsigned)rs1 >> (unsigned)rs2;//(not actuall rs2)
 				wbres.push(res);
 				return;
 			}
-			if (func7 == 32)//srai
+			if (exf7 == 32)//srai
 			{
 				res = rs1 >> rs2;//(not actuall rs2)
 				wbres.push(res);
@@ -671,23 +636,19 @@ void EX()
 //load and store
 void MEM()
 {
-	if (exdone == 0||memdone==1)
+	if (exdone == 0 || memdone == 1)
 		return;
 	exdone--;
 	memdone++;
-	opcode = memop.front() & 127;
-	memop.pop();
-	wbop.push(opcode);
-	used = 1;
-	switch (opcode)
+	wbop = memop;
+	rsused = 1;
+	switch (memop)
 	{
 	case 3://(i-type)load
 	{
 		res = memres.front();
 		memres.pop();
-		func3 = memf3.front();
-		memf3.pop();
-		switch (func3)
+		switch (memf3)
 		{
 		case 0://lb
 		{
@@ -730,9 +691,8 @@ void MEM()
 	{
 		res = memres.front();
 		memres.pop();
-		func3 = memf3.front();
-		memf3.pop();
-		if (func3 == 0)//sb
+
+		if (memf3 == 0)//sb
 		{
 			memory[res] = rs2 & 255;
 			if (res == 0x30004)
@@ -740,26 +700,23 @@ void MEM()
 				cout << (unsigned)(r[10] & 255);
 				exit(0);
 			}
-			//cout << rs2 << '\n';
 			memlock[res] = 0;
 			return;
 		}
-		if (func3 == 1)//sh;
+		if (memf3 == 1)//sh;
 		{
 			memory[res] = rs2 & 255;
 			memory[res + 1] = (rs2 >> 8) & 255;
-			memlock[res] = memlock[res + 1] =0;
-			//cout << rs2 << '\n';
+			memlock[res] = memlock[res + 1] = 0;
 			return;
 		}
-		if (func3 == 2)//sw
+		if (memf3 == 2)//sw
 		{
 			memory[res] = rs2 & 255;
 			memory[res + 1] = (rs2 >> 8) & 255;
 			memory[res + 2] = (rs2 >> 16) & 255;
 			memory[res + 3] = (rs2 >> 24) & 255;
-			memset(memlock, 0,sizeof(memlock));
-			//cout << rs2 << '\n';
+			memlock[res] = memlock[res + 1] = memlock[res + 2] = memlock[res + 3] = 0;
 			return;
 		}
 		cout << "error: MEM store";
@@ -773,21 +730,15 @@ void WB()
 	if (memdone == 0)
 		return;
 	memdone--;
-	opcode = wbop.front() & 127;
-	wbop.pop();
-	/*for (int i = 0; i < 32; ++i)
-	{
-		cout << r[i] << ' ';
-	}*/
-	//cout << '\n';
-	switch (opcode)//读取操作码
+
+	switch (wbop)//读取操作码
 	{
 	case 99:case 35://store and b-type
 		return;
 	default:
-		rd_index = rd.front();
-		rd.pop();
-		if (wbres.empty()&&rd_index==0)
+		rd_index = rd;
+		rdused = 1;
+		if (wbres.empty() && rd_index == 0)
 		{
 			return;
 		}
