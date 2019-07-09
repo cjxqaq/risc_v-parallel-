@@ -331,7 +331,7 @@ void ID()
 }
 void EX()
 {
-	if (iddone == 0 || exdone == 1||resused==0)
+	if (iddone == 0 || exdone == 1)
 		return;
 	iddone--;
 	exdone++;
