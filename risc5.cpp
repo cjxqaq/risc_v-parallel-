@@ -11,9 +11,9 @@ int rs1, rs2, res, rd_index, inst, imm, func3, func7;
 int rlock[32], pclock;
 bool memlock[memspace];
 int ifdone, iddone, exdone, memdone;
-queue<int>  eximm, memres, wbres;
-int exop, memop, wbop, exf3, exf7, memf3, rd;
-int rsused = 1, rdused = 1;
+int exop, memop, wbop, exf3, exf7, memf3, rd, eximm, memres, wbres;
+int rsused = 1, rdused = 1, resused = 1;
+int debugc;
 int signedextend(int x, int bits)
 {
 	if (x >> (bits - 1) == 1)
@@ -165,7 +165,7 @@ void ID()
 		exf3 = func3;
 
 		imm = signedextend(imm, 12);
-		eximm.push(imm);
+		eximm=imm;
 
 		exop = opcode;
 		return;
@@ -191,7 +191,7 @@ void ID()
 		exf3 = func3;
 
 		imm = signedextend(imm, 12);
-		eximm.push(imm);
+		eximm = imm;
 
 		exop = opcode;
 		return;
@@ -222,7 +222,7 @@ void ID()
 
 		exop = opcode;
 
-		eximm.push(imm);
+		eximm = imm;
 
 		return;
 	}
@@ -242,7 +242,7 @@ void ID()
 		rdused = 0;
 
 		exop = opcode;
-		eximm.push(imm);
+		eximm = imm;
 
 		return;
 	}
@@ -263,7 +263,7 @@ void ID()
 		rdused = 0;
 
 		imm = signedextend(imm, 21);
-		eximm.push(imm);
+		eximm = imm;
 
 		exop = opcode;
 		return;
@@ -275,7 +275,7 @@ void ID()
 		{
 			rs2 = (inst >> 20) & 31;//shamt
 			rs1_index = (inst >> 15) & 31;
-			if (rlock[rs1_index] != 0 || rsused == 0 | rdused == 0)//check if locked
+			if (rlock[rs1_index] != 0 || rsused == 0 || rdused == 0)//check if locked
 			{
 				return;
 			}
@@ -318,7 +318,7 @@ void ID()
 			exf3 = func3;
 
 			imm = signedextend(imm, 12);
-			eximm.push(imm);
+			eximm = imm;
 
 			exop = opcode;
 			return;
@@ -349,13 +349,15 @@ void EX()
 			if (exf7 == 0)//add
 			{
 				res = rs1 + rs2;
-				wbres.push(res);
+				wbres=res;
+				resused = 0;
 				return;
 			}
 			if (exf7 == 32)//sub
 			{
 				res = rs1 - rs2;
-				wbres.push(res);
+				wbres=res;
+				resused = 0;
 				return;
 			}
 			cout << "error: EX case 51";
@@ -364,25 +366,29 @@ void EX()
 		case 1://sll
 		{
 			res = (unsigned)rs1 << (unsigned)(rs2 & 31);
-			wbres.push(res);
+			wbres=res;
+			resused = 0;
 			return;
 		}
 		case 2://slt
 		{
 			res = rs1 < rs2 ? 1 : 0;
-			wbres.push(res);
+			wbres=res;
+			resused = 0;
 			return;
 		}
 		case 3://sltu
 		{
 			res = (unsigned)rs1 < (unsigned)rs2 ? 1 : 0;
-			wbres.push(res);
+			wbres=res;
+			resused = 0;
 			return;
 		}
 		case 4://xor
 		{
 			res = rs1 xor rs2;
-			wbres.push(res);
+			wbres=res;
+			resused = 0;
 			return;
 		}
 		case 5://srl and sra
@@ -390,13 +396,15 @@ void EX()
 			if (exf7 == 0)//srl
 			{
 				res = (unsigned)rs1 >> (unsigned)(rs2 & 31);
-				wbres.push(res);
+				wbres=res;
+				resused = 0;
 				return;
 			}
 			if (exf7 == 32)//sra
 			{
 				res = rs1 >> (rs2 & 31);
-				wbres.push(res);
+				wbres=res;
+				resused = 0;
 				return;
 			}
 			cout << "error: EX case 51";
@@ -405,13 +413,15 @@ void EX()
 		case 6://or
 		{
 			res = rs1 | rs2;
-			wbres.push(res);
+			wbres=res;
+			resused = 0;
 			return;
 		}
 		case 7://and
 		{
 			res = rs1 & rs2;
-			wbres.push(res);
+			wbres=res;
+			resused = 0;
 			return;
 		}
 		default:
@@ -422,8 +432,7 @@ void EX()
 	}
 	case 103://(i-type)jalr
 	{
-		imm = eximm.front();
-		eximm.pop();
+		imm = eximm;
 		res = pc;
 		pc = rs1 + imm;
 		pc >>= 1;
@@ -433,21 +442,19 @@ void EX()
 	}
 	case 3://(i-type)lb lh lw lbu lhu
 	{
-		imm = eximm.front();
-		eximm.pop();
+		imm = eximm;
 		res = rs1 + imm;
-		memres.push(res);
+		memres=res;
 
 		memf3 = exf3;
 		return;
 	}
 	case 35://(s-type)sb sh sw
 	{
-		imm = eximm.front();
-		eximm.pop();
+		imm = eximm;
 		memf3 = exf3;
 		res = rs1 + imm;
-		memres.push(res);
+		memres=res;
 		if (exf3 == 0)
 		{
 			memlock[res] = 1;
@@ -464,8 +471,7 @@ void EX()
 	}
 	case 99://b-type
 	{
-		imm = eximm.front();
-		eximm.pop();
+		imm = eximm;
 		pclock--;
 		rsused = 1;
 		switch (exf3)
@@ -525,27 +531,27 @@ void EX()
 	}
 	case 55://(u-type)lui
 	{
-		imm = eximm.front();
-		eximm.pop();
+		imm = eximm;
 		res = imm;
-		wbres.push(res);
+		wbres=res;
+		resused = 0;
 		return;
 	}
 	case 23://(u-type)auipc
 	{
-		imm = eximm.front();
-		eximm.pop();
+		imm = eximm;
 		res = pc - 4 + imm;
-		wbres.push(res);
+		wbres=res;
+		resused = 0;
 		return;
 	}
 	case 111://(j-type)jal
 	{
-		imm = eximm.front();
-		eximm.pop();
+		imm = eximm;
 		res = pc;
 		pc = pc + imm - 4;
-		wbres.push(res);
+		wbres=res;
+		resused = 0;
 		pclock--;
 		return;
 	}
@@ -557,56 +563,57 @@ void EX()
 		{
 		case 0://addi
 		{
-			imm = eximm.front();
-			eximm.pop();
+			imm = eximm;
 			res = rs1 + imm;
-			wbres.push(res);
+			wbres=res;
+			resused = 0;
 			return;
 		}
 		case 2://slti
 		{
-			imm = eximm.front();
-			eximm.pop();
+			imm = eximm;
 			res = rs1 < imm ? 1 : 0;
-			wbres.push(res);
+			wbres=res;
+			resused = 0;
 			return;
 		}
 		case 3://sltui
 		{
-			imm = eximm.front();
-			eximm.pop();
+			imm = eximm;
 			res = (unsigned)rs1 < (unsigned)imm ? 1 : 0;
-			wbres.push(res);
+			wbres=res;
+			resused = 0;
 			return;
 		}
 		case 4://xori
 		{
-			imm = eximm.front();
-			eximm.pop();
+			imm = eximm;
 			res = rs1 xor imm;
-			wbres.push(res);
+			wbres = res;
+			resused = 0;
 			return;
 		}
 		case 6://ori
 		{
-			imm = eximm.front();
-			eximm.pop();
+			imm = eximm;
 			res = rs1 | imm;
-			wbres.push(res);
+			wbres=res;
+			resused = 0;
 			return;
 		}
 		case 7://andi
 		{
-			imm = eximm.front();
-			eximm.pop();
+			imm = eximm;
 			res = rs1 & imm;
-			wbres.push(res);
+			wbres=res;
+			resused = 0;
 			return;
 		}
 		case 1://slli
 		{
 			res = rs1 << rs2;//(not actuall rs2)
-			wbres.push(res);
+			wbres=res;
+			resused = 0;
 			return;
 		}
 		case 5:
@@ -614,13 +621,15 @@ void EX()
 			if (exf7 == 0)//srli
 			{
 				res = (unsigned)rs1 >> (unsigned)rs2;//(not actuall rs2)
-				wbres.push(res);
+				wbres=res;
+				resused = 0;
 				return;
 			}
 			if (exf7 == 32)//srai
 			{
 				res = rs1 >> rs2;//(not actuall rs2)
-				wbres.push(res);
+				wbres=res;
+				resused = 0;
 				return;
 			}
 			cout << "error: EX case 19";
@@ -646,40 +655,39 @@ void MEM()
 	{
 	case 3://(i-type)load
 	{
-		res = memres.front();
-		memres.pop();
+		res = memres;
 		switch (memf3)
 		{
 		case 0://lb
 		{
 			res = memory[res];
 			if (res & 0x80) res |= 0xffffff00;
-			wbres.push(res);
+			wbres=res;
 			return;
 		}
 		case 1://lh
 		{
 			res = (memory[res] & 255) | ((memory[res + 1] & 255) << 8);
 			res = signedextend(res, 16);
-			wbres.push(res);
+			wbres=res;
 			return;
 		}
 		case 2://lw
 		{
 			res = (memory[res] & 255) | ((memory[res + 1] & 255) << 8) | ((memory[res + 2] & 255) << 16) | ((memory[res + 3] & 255) << 24);
-			wbres.push(res);
+			wbres=res;
 			return;
 		}
 		case 4://lbu
 		{
 			res = memory[res] & 255;
-			wbres.push(res);
+			wbres=res;
 			return;
 		}
 		case 5://lhu
 		{
 			res = memory[res] | ((memory[res + 1] & 255) << 8);
-			wbres.push(res);
+			wbres=res;
 			return;
 		}
 		default:
@@ -689,8 +697,7 @@ void MEM()
 	}
 	case 35://(s-type)store
 	{
-		res = memres.front();
-		memres.pop();
+		res = memres;
 
 		if (memf3 == 0)//sb
 		{
@@ -738,16 +745,11 @@ void WB()
 	default:
 		rd_index = rd;
 		rdused = 1;
-		if (wbres.empty() && rd_index == 0)
-		{
-			return;
-		}
-		res = wbres.front();
-		wbres.pop();
+		res = wbres;
+		resused = 1;
 		if (rd_index == 0)
 			return;
-		if (res == 0x960)
-			res += 0;
+
 		r[rd_index] = res;
 		rlock[rd_index]--;
 		return;
@@ -772,6 +774,8 @@ int main()
 		EX();
 		ID();
 		IF();
+		if (r[10] == 159)
+			continue;
 	}
 }
 
