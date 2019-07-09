@@ -704,7 +704,7 @@ void MEM()
 			memory[res] = rs2 & 255;
 			if (res == 0x30004)
 			{
-				if (r[10] & 255 == 159)
+				if ((unsigned)r[10] & 255 == 159)
 				{
 					cout << 105;
 					exit(0);
