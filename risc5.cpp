@@ -1,6 +1,7 @@
 #include <iostream>
 #include <stdlib.h>
 #include <queue>
+#include<cstring>
 using namespace std;
 const int memspace = 0x3fffff;
 int pc;
