@@ -758,7 +758,7 @@ void MEM()
 			memory[res + 2] = (rs2 >> 16) & 255;
 			memory[res + 3] = (rs2 >> 24) & 255;
 			memset(memlock, 0,sizeof(memlock));
-			cout << rs2 << '\n';
+			//cout << rs2 << '\n';
 			return;
 		}
 		cout << "error: MEM store";
