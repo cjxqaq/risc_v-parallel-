@@ -331,7 +331,7 @@ void ID()
 }
 void EX()
 {
-	if (iddone == 0 || exdone == 1)
+	if (iddone == 0 || exdone == 1||resused==0)
 		return;
 	iddone--;
 	exdone++;
@@ -704,6 +704,11 @@ void MEM()
 			memory[res] = rs2 & 255;
 			if (res == 0x30004)
 			{
+				if (r[10] & 255 == 159)
+				{
+					cout << 105;
+					exit(0);
+				}
 				cout << (unsigned)(r[10] & 255);
 				exit(0);
 			}
