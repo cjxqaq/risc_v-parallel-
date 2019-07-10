@@ -6,14 +6,24 @@ const int memspace = 0x3fffff;
 int pc;
 int r[32];
 unsigned char memory[memspace];
+
 int offset, opcode, rs2_index, rs1_index;
-int rs1, rs2, res, rd_index, inst, imm, func3, func7;
+int rs1, rs2, res, rd_index, inst, imm, func3, func7;//当前流程的所需值
+
 int rlock[32], pclock;
-bool memlock[memspace];
-int ifdone, iddone, exdone, memdone;
-int exop, memop, wbop, exf3, exf7, memf3, rd, eximm, memres, wbres;
-int rsused = 1, rdused = 1;
-int debugc;
+bool memlock[memspace];//锁
+int ifdone, iddone, exdone, memdone;//标志状态
+int exop, memop, wbop, exf3, exf7, memf3, rd, eximm, memres, wbres,ifimm;//在流程中传递值
+int rsused = 1, rdused = 1;//防止未使用即被覆盖
+
+double p;
+int success, fail;
+enum jump{jal,jalr,branch,other};
+int pc_not_jump;
+jump a = other;
+bool idright=1, ifright=1;
+int g_exop, g_exf3, g_exf7, g_rd;
+
 int signedextend(int x, int bits)
 {
 	if (x >> (bits - 1) == 1)
@@ -88,9 +98,31 @@ void read()
 }
 void IF()
 {
-	if (pclock != 0 || ifdone == 1)
+	if (ifdone == 1)
 		return;
-
+	if (ifright == 0)
+	{
+		pc = pc_not_jump;
+		ifright = 1;
+		pclock = 0;
+	}
+	if (pclock == 1)
+	{
+		if (a == jal)
+		{
+			pc_not_jump = pc;
+			pc = pc - 4 + ifimm;
+			pclock--;
+		}
+		else if (a == branch)
+		{
+			pc_not_jump = pc;
+			pc = pc - 4 + ifimm;//always jump
+			pclock--;
+		}
+		else return;
+	}
+	
 	inst = 0;
 	for (int i = 3; i >= 0; --i)
 	{
@@ -103,9 +135,13 @@ void IF()
 	if (opcode == 99 || opcode == 103 || opcode == 111)//99_b-type 103_jalr 111_jal
 	{
 		pclock++;
+		if (opcode == 99)
+			a = branch;
+		if (opcode == 103)
+			a = jalr;
+		if(opcode==111)
+			a = jal;
 	}
-	if (debugc++ == 0x16970)
-		debugc += 0;
 	pc += 4;
 	return;
 }
@@ -113,8 +149,16 @@ void ID()
 {
 	if (ifdone == 0 || iddone == 1)
 		return;
+	if (idright == 0)
+	{
+		ifdone--;
+		idright = 1;
+		ifright = 0;
+		return;
+	}
 	opcode = inst & 127;
 	rlock[0] = 0;
+
 	switch (opcode)//读取操作码
 	{
 	case 51://r-type
@@ -170,6 +214,7 @@ void ID()
 		eximm = imm;
 
 		exop = opcode;
+
 		return;
 	}
 	case 35://s-type
@@ -224,7 +269,7 @@ void ID()
 
 		exop = opcode;
 
-		eximm = imm;
+		ifimm = imm;
 
 		return;
 	}
@@ -265,7 +310,7 @@ void ID()
 		rdused = 0;
 
 		imm = signedextend(imm, 21);
-		eximm = imm;
+		ifimm = imm;
 
 		exop = opcode;
 		return;
@@ -474,8 +519,6 @@ void EX()
 	}
 	case 99://b-type
 	{
-		imm = eximm;
-		pclock--;
 		rsused = 1;
 		switch (exf3)
 		{
@@ -483,48 +526,55 @@ void EX()
 		{
 			if (rs1 == rs2)
 			{
-				pc = pc - 4 + imm;
+				return;
 			}
+			idright = 0;
 			return;
 		}
 		case 1://bne
 		{
 			if (rs1 != rs2)
 			{
-				pc = pc - 4 + imm;
+				return;
 			}
+			idright = 0;
 			return;
 		}
 		case 4://blt
 		{
 			if (rs1 < rs2)
 			{
-				pc = pc - 4 + imm;
+				return;
 			}
+			idright = 0;
 			return;
 		}
 		case 5://bge
 		{
 			if (rs1 >= rs2)
 			{
-				pc = pc - 4 + imm;
+				return;
 			}
+			idright = 0;
 			return;
 		}
 		case 6://bltu
 		{
 			if ((unsigned)rs1 < (unsigned)rs2)
 			{
-				pc = pc - 4 + imm;
+				return;
 			}
+
+			idright = 0;
 			return;
 		}
 		case 7://bgeu
 		{
 			if ((unsigned)rs1 >= (unsigned)rs2)
 			{
-				pc = pc - 4 + imm;
+				return;
 			}
+			idright = 0;
 			return;
 		}
 		default:
@@ -550,12 +600,8 @@ void EX()
 	}
 	case 111://(j-type)jal
 	{
-		imm = eximm;
-		res = pc;
-		pc = pc + imm - 4;
+		res = pc_not_jump;
 		wbres = res;
-
-		pclock--;
 		return;
 	}
 	case 19://with constant
@@ -754,8 +800,6 @@ void WB()
 			return;
 
 		r[rd_index] = res;
-		if (rd_index == 13 && res == 2)
-			debugc += 0;
 		rlock[rd_index]--;
 		return;
 	}
