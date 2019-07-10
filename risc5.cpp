@@ -123,7 +123,7 @@ void IF()
 		}
 		else if (a == beq)
 		{
-			pc_not_jump = pc - 4 + ifimm;//其实是跳转，为保持形式统一
+			pc_not_jump = pc - 4 + ifimm;//为保持形式统一
 			pclock--;
 		}
 		else return;
@@ -768,7 +768,7 @@ void MEM()
 			if (res == 0x30004)
 			{
 				cout << (unsigned)(r[10] & 255) << '\n';
-				cout << (double)success / (success + fail);
+				//cout << (double)success / (success + fail);
 				exit(0);
 			}
 			memlock[res] = 0;
