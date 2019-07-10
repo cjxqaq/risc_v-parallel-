@@ -1,5 +1,6 @@
 #include <iostream>
 #include <stdlib.h>
+#include <fstream>
 using namespace std;
 const int memspace = 0x3fffff;
 int pc;
@@ -103,6 +104,8 @@ void IF()
 	{
 		pclock++;
 	}
+	if (debugc++ == 0x16970)
+		debugc += 0;
 	pc += 4;
 	return;
 }
@@ -164,7 +167,7 @@ void ID()
 		exf3 = func3;
 
 		imm = signedextend(imm, 12);
-		eximm=imm;
+		eximm = imm;
 
 		exop = opcode;
 		return;
@@ -272,12 +275,13 @@ void ID()
 		func3 = (inst >> 12) & 7;
 		if (func3 == 1 || func3 == 5)//r-type(not)
 		{
-			rs2 = (inst >> 20) & 31;//shamt
-			rs1_index = (inst >> 15) & 31;
 			if (rlock[rs1_index] != 0 || rsused == 0 || rdused == 0)//check if locked
 			{
 				return;
 			}
+			rs2 = (inst >> 20) & 31;//shamt
+			rs1_index = (inst >> 15) & 31;
+
 
 			ifdone--;
 			iddone++;
@@ -348,15 +352,15 @@ void EX()
 			if (exf7 == 0)//add
 			{
 				res = rs1 + rs2;
-				wbres=res;
-				 
+				wbres = res;
+
 				return;
 			}
 			if (exf7 == 32)//sub
 			{
 				res = rs1 - rs2;
-				wbres=res;
-				 
+				wbres = res;
+
 				return;
 			}
 			cout << "error: EX case 51";
@@ -365,29 +369,29 @@ void EX()
 		case 1://sll
 		{
 			res = (unsigned)rs1 << (unsigned)(rs2 & 31);
-			wbres=res;
-			 
+			wbres = res;
+
 			return;
 		}
 		case 2://slt
 		{
 			res = rs1 < rs2 ? 1 : 0;
-			wbres=res;
-			 
+			wbres = res;
+
 			return;
 		}
 		case 3://sltu
 		{
 			res = (unsigned)rs1 < (unsigned)rs2 ? 1 : 0;
-			wbres=res;
-			 
+			wbres = res;
+
 			return;
 		}
 		case 4://xor
 		{
 			res = rs1 xor rs2;
-			wbres=res;
-			 
+			wbres = res;
+
 			return;
 		}
 		case 5://srl and sra
@@ -395,15 +399,15 @@ void EX()
 			if (exf7 == 0)//srl
 			{
 				res = (unsigned)rs1 >> (unsigned)(rs2 & 31);
-				wbres=res;
-				 
+				wbres = res;
+
 				return;
 			}
 			if (exf7 == 32)//sra
 			{
 				res = rs1 >> (rs2 & 31);
-				wbres=res;
-				 
+				wbres = res;
+
 				return;
 			}
 			cout << "error: EX case 51";
@@ -412,15 +416,15 @@ void EX()
 		case 6://or
 		{
 			res = rs1 | rs2;
-			wbres=res;
-			 
+			wbres = res;
+
 			return;
 		}
 		case 7://and
 		{
 			res = rs1 & rs2;
-			wbres=res;
-			 
+			wbres = res;
+
 			return;
 		}
 		default:
@@ -443,7 +447,7 @@ void EX()
 	{
 		imm = eximm;
 		res = rs1 + imm;
-		memres=res;
+		memres = res;
 
 		memf3 = exf3;
 		return;
@@ -453,7 +457,7 @@ void EX()
 		imm = eximm;
 		memf3 = exf3;
 		res = rs1 + imm;
-		memres=res;
+		memres = res;
 		if (exf3 == 0)
 		{
 			memlock[res] = 1;
@@ -532,16 +536,16 @@ void EX()
 	{
 		imm = eximm;
 		res = imm;
-		wbres=res;
-		 
+		wbres = res;
+
 		return;
 	}
 	case 23://(u-type)auipc
 	{
 		imm = eximm;
 		res = pc - 4 + imm;
-		wbres=res;
-		 
+		wbres = res;
+
 		return;
 	}
 	case 111://(j-type)jal
@@ -549,8 +553,8 @@ void EX()
 		imm = eximm;
 		res = pc;
 		pc = pc + imm - 4;
-		wbres=res;
-		 
+		wbres = res;
+
 		pclock--;
 		return;
 	}
@@ -564,24 +568,24 @@ void EX()
 		{
 			imm = eximm;
 			res = rs1 + imm;
-			wbres=res;
-			 
+			wbres = res;
+
 			return;
 		}
 		case 2://slti
 		{
 			imm = eximm;
 			res = rs1 < imm ? 1 : 0;
-			wbres=res;
-			 
+			wbres = res;
+
 			return;
 		}
 		case 3://sltui
 		{
 			imm = eximm;
 			res = (unsigned)rs1 < (unsigned)imm ? 1 : 0;
-			wbres=res;
-			 
+			wbres = res;
+
 			return;
 		}
 		case 4://xori
@@ -589,30 +593,30 @@ void EX()
 			imm = eximm;
 			res = rs1 xor imm;
 			wbres = res;
-			 
+
 			return;
 		}
 		case 6://ori
 		{
 			imm = eximm;
 			res = rs1 | imm;
-			wbres=res;
-			 
+			wbres = res;
+
 			return;
 		}
 		case 7://andi
 		{
 			imm = eximm;
 			res = rs1 & imm;
-			wbres=res;
-			 
+			wbres = res;
+
 			return;
 		}
 		case 1://slli
 		{
 			res = rs1 << rs2;//(not actuall rs2)
-			wbres=res;
-			 
+			wbres = res;
+
 			return;
 		}
 		case 5:
@@ -620,15 +624,15 @@ void EX()
 			if (exf7 == 0)//srli
 			{
 				res = (unsigned)rs1 >> (unsigned)rs2;//(not actuall rs2)
-				wbres=res;
-				 
+				wbres = res;
+
 				return;
 			}
 			if (exf7 == 32)//srai
 			{
 				res = rs1 >> rs2;//(not actuall rs2)
-				wbres=res;
-				 
+				wbres = res;
+
 				return;
 			}
 			cout << "error: EX case 19";
@@ -661,32 +665,32 @@ void MEM()
 		{
 			res = memory[res];
 			if (res & 0x80) res |= 0xffffff00;
-			wbres=res;
+			wbres = res;
 			return;
 		}
 		case 1://lh
 		{
 			res = (memory[res] & 255) | ((memory[res + 1] & 255) << 8);
 			res = signedextend(res, 16);
-			wbres=res;
+			wbres = res;
 			return;
 		}
 		case 2://lw
 		{
 			res = (memory[res] & 255) | ((memory[res + 1] & 255) << 8) | ((memory[res + 2] & 255) << 16) | ((memory[res + 3] & 255) << 24);
-			wbres=res;
+			wbres = res;
 			return;
 		}
 		case 4://lbu
 		{
 			res = memory[res] & 255;
-			wbres=res;
+			wbres = res;
 			return;
 		}
 		case 5://lhu
 		{
 			res = memory[res] | ((memory[res + 1] & 255) << 8);
-			wbres=res;
+			wbres = res;
 			return;
 		}
 		default:
@@ -745,11 +749,13 @@ void WB()
 		rd_index = rd;
 		rdused = 1;
 		res = wbres;
-		 
+
 		if (rd_index == 0)
 			return;
 
 		r[rd_index] = res;
+		if (rd_index == 13 && res == 2)
+			debugc += 0;
 		rlock[rd_index]--;
 		return;
 	}
