@@ -8,21 +8,20 @@ int r[32];
 unsigned char memory[memspace];
 
 int offset, opcode, rs2_index, rs1_index;
-int rs1, rs2, res, rd_index, inst, imm, func3, func7;//当前流程的所需值
+int rs1, rs2, res, rd_index, inst, imm, func3, func7;//当前流程的所需的值
 
 int rlock[32], pclock;
 bool memlock[memspace];//锁
 int ifdone, iddone, exdone, memdone;//标志状态
-int exop, memop, wbop, exf3, exf7, memf3, rd, eximm, memres, wbres,ifimm;//在流程中传递值
-int rsused = 1, rdused = 1;//防止未使用即被覆盖
+int exop, memop, wbop, exf3, exf7, memf3, rd, eximm, memres, wbres, ifimm;//在流程中传递的值
+int rsused = 1, rdused = 1;//防止未使用就被覆盖
 
-double p;
 int success, fail;
-enum jump{jal,jalr,branch,other};
+enum jump { jal, beq, branch, other,jalr };
 int pc_not_jump;
 jump a = other;
-bool idright=1, ifright=1;
-int g_exop, g_exf3, g_exf7, g_rd;
+bool idright = 1, ifright = 1;
+unsigned char table;
 
 int signedextend(int x, int bits)
 {
@@ -105,6 +104,8 @@ void IF()
 		pc = pc_not_jump;
 		ifright = 1;
 		pclock = 0;
+		success--;
+		fail++;
 	}
 	if (pclock == 1)
 	{
@@ -120,9 +121,14 @@ void IF()
 			pc = pc - 4 + ifimm;//always jump
 			pclock--;
 		}
+		else if (a == beq)
+		{
+			pc_not_jump = pc - 4 + ifimm;//其实是跳转，为保持形式统一
+			pclock--;
+		}
 		else return;
 	}
-	
+
 	inst = 0;
 	for (int i = 3; i >= 0; --i)
 	{
@@ -130,17 +136,25 @@ void IF()
 			return;
 		inst += (int)memory[pc + i] << (8 * i);
 	}
+	if (inst == 0xf99ff0ef)
+		inst += 0;
 	ifdone++;
 	opcode = inst & 127;
 	if (opcode == 99 || opcode == 103 || opcode == 111)//99_b-type 103_jalr 111_jal
 	{
 		pclock++;
 		if (opcode == 99)
-			a = branch;
+		{
+			if (((inst >> 12) & 7) == 0)
+				a = beq;
+			else
+				a = branch;
+			success++;
+		}
+		if (opcode == 111)
+			a = jal;
 		if (opcode == 103)
 			a = jalr;
-		if(opcode==111)
-			a = jal;
 	}
 	pc += 4;
 	return;
@@ -526,9 +540,9 @@ void EX()
 		{
 			if (rs1 == rs2)
 			{
+				idright = 0;
 				return;
 			}
-			idright = 0;
 			return;
 		}
 		case 1://bne
@@ -753,7 +767,8 @@ void MEM()
 			memory[res] = rs2 & 255;
 			if (res == 0x30004)
 			{
-				cout << (unsigned)(r[10] & 255);
+				cout << (unsigned)(r[10] & 255) << '\n';
+				cout << (double)success / (success + fail);
 				exit(0);
 			}
 			memlock[res] = 0;
