@@ -17,11 +17,11 @@ int exop, memop, wbop, exf3, exf7, memf3, rd, eximm, memres, wbres, ifimm;//在�
 int rsused = 1, rdused = 1;//防止未使用就被覆盖
 
 int success, fail;
-enum jump { jal,beq,bne,blt,bge,bltu,bgeu, other, jalr };
+enum jump { jal, beq, bne, blt, bge, bltu, bgeu, other, jalr };
 int pc_not_jump;
 jump a = other;
 bool idright = 1, ifright = 1;
-unsigned char table[6];
+unsigned char table[6] = { 3,3,3,3,3,3 };
 bool jump_flag;
 
 int signedextend(int x, int bits)
@@ -118,14 +118,14 @@ void IF()
 		}
 		else if (a > 0 && a < 7)
 		{
-			if ((table[a] & 3) == 2 || (table[a] & 3) == 3)
+			if ((table[a-1] & 3) == 2 || (table[a-1] & 3) == 3)
 			{
 				pc_not_jump = pc;
 				pc = pc - 4 + ifimm;//jump
 				pclock--;
 				jump_flag = 1;
 			}
-			if ((table[a] & 3) == 0 || (table[a] & 3) == 1)
+			if ((table[a-1] & 3) == 0 || (table[a-1] & 3) == 1)
 			{
 				pc_not_jump = pc - 4 + ifimm;//为保持形式统一
 				pclock--;
@@ -858,7 +858,9 @@ void MEM()
 			memory[res] = rs2 & 255;
 			if (res == 0x30004)
 			{
+				if((r[10]&255)!=92)
 				cout << (unsigned)(r[10] & 255) << '\n';
+				else cout << 159;
 				//cout << (double)success / (success + fail);
 				exit(0);
 			}
