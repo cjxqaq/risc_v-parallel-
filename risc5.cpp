@@ -17,11 +17,11 @@ int exop, memop, wbop, exf3, exf7, memf3, rd, eximm, memres, wbres, ifimm;//在�
 int rsused = 1, rdused = 1;//防止未使用就被覆盖
 
 int success, fail;
-enum jump { jal,branch, other,jalr };
+enum jump { jal, branch, other, jalr };
 int pc_not_jump;
 jump a = other;
 bool idright = 1, ifright = 1;
-unsigned char table;
+unsigned char table=3;
 bool jump_flag;
 
 int signedextend(int x, int bits)
@@ -116,14 +116,14 @@ void IF()
 			pc = pc - 4 + ifimm;
 			pclock--;
 		}
-		else if (a == branch&&(table&3==2||table&3==3))
+		else if (a == branch && ((table & 3) == 2 || (table & 3) == 3))
 		{
 			pc_not_jump = pc;
 			pc = pc - 4 + ifimm;//jump
 			pclock--;
 			jump_flag = 1;
 		}
-		else if (a == branch&&(table&3==0||table&3==1))
+		else if (a == branch && ((table & 3) == 0 || (table & 3) == 1))
 		{
 			pc_not_jump = pc - 4 + ifimm;//为保持形式统一
 			pclock--;
@@ -540,28 +540,19 @@ void EX()
 		{
 			if (rs1 == rs2)
 			{
-				if (jump_flag == 1)
-				{
-					table <<= 1;
-					table |= 1;
-					return;
-				}
-				else
+				table <<= 1;
+				table |= 1;
+				if (jump_flag == 0)
 				{
 					idright = 0;
-					table <<= 1;
-					return;
 				}
+				return;
 			}
+			table <<= 1;
 			if (jump_flag == 1)
 			{
 				idright = 0;
-				table <<= 1;
-			}
-			else
-			{
-				table <<= 1;
-				table |= 1;
+
 			}
 			return;
 		}
@@ -569,28 +560,19 @@ void EX()
 		{
 			if (rs1 != rs2)
 			{
-				if (jump_flag == 1)
-				{
-					table <<= 1;
-					table |= 1;
-					return;
-				}
-				else
+				table <<= 1;
+				table |= 1;
+				if (jump_flag == 0)
 				{
 					idright = 0;
-					table <<= 1;
-					return;
 				}
+				return;
 			}
+			table <<= 1;
 			if (jump_flag == 1)
 			{
 				idright = 0;
-				table <<= 1;
-			}
-			else
-			{
-				table <<= 1;
-				table |= 1;
+
 			}
 			return;
 		}
@@ -598,57 +580,40 @@ void EX()
 		{
 			if (rs1 < rs2)
 			{
-				if (jump_flag == 1)
-				{
-					table <<= 1;
-					table |= 1;
-					return;
-				}
-				else
+				table <<= 1;
+				table |= 1;
+				if (jump_flag == 0)
 				{
 					idright = 0;
-					table <<= 1;
-					return;
 				}
+				return;
 			}
+			table <<= 1;
 			if (jump_flag == 1)
 			{
 				idright = 0;
-				table <<= 1;
-			}
-			else
-			{
-				table <<= 1;
-				table |= 1;
+
 			}
 			return;
+
 		}
 		case 5://bge
 		{
 			if (rs1 >= rs2)
 			{
-				if (jump_flag == 1)
-				{
-					table <<= 1;
-					table |= 1;
-					return;
-				}
-				else
+				table <<= 1;
+				table |= 1;
+				if (jump_flag == 0)
 				{
 					idright = 0;
-					table <<= 1;
-					return;
 				}
+				return;
 			}
+			table <<= 1;
 			if (jump_flag == 1)
 			{
 				idright = 0;
-				table <<= 1;
-			}
-			else
-			{
-				table <<= 1;
-				table |= 1;
+
 			}
 			return;
 		}
@@ -656,28 +621,19 @@ void EX()
 		{
 			if ((unsigned)rs1 < (unsigned)rs2)
 			{
-				if (jump_flag == 1)
-				{
-					table <<= 1;
-					table |= 1;
-					return;
-				}
-				else
+				table <<= 1;
+				table |= 1;
+				if (jump_flag == 0)
 				{
 					idright = 0;
-					table <<= 1;
-					return;
 				}
+				return;
 			}
+			table <<= 1;
 			if (jump_flag == 1)
 			{
 				idright = 0;
-				table <<= 1;
-			}
-			else
-			{
-				table <<= 1;
-				table |= 1;
+
 			}
 			return;
 		}
@@ -685,28 +641,19 @@ void EX()
 		{
 			if ((unsigned)rs1 >= (unsigned)rs2)
 			{
-				if (jump_flag == 1)
-				{
-					table <<= 1;
-					table |= 1;
-					return;
-				}
-				else
+				table <<= 1;
+				table |= 1;
+				if (jump_flag == 0)
 				{
 					idright = 0;
-					table <<= 1;
-					return;
 				}
+				return;
 			}
+			table <<= 1;
 			if (jump_flag == 1)
 			{
 				idright = 0;
-				table <<= 1;
-			}
-			else
-			{
-				table <<= 1;
-				table |= 1;
+
 			}
 			return;
 		}
@@ -887,7 +834,7 @@ void MEM()
 			if (res == 0x30004)
 			{
 				cout << (unsigned)(r[10] & 255) << '\n';
-				cout << (double)success / (success + fail);
+				//cout << (double)success / (success + fail);
 				exit(0);
 			}
 			memlock[res] = 0;
