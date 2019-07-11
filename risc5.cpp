@@ -17,11 +17,11 @@ int exop, memop, wbop, exf3, exf7, memf3, rd, eximm, memres, wbres, ifimm;//在�
 int rsused = 1, rdused = 1;//防止未使用就被覆盖
 
 int success, fail;
-enum jump { jal, branch, other, jalr };
+enum jump { jal,beq,bne,blt,bge,bltu,bgeu, other, jalr };
 int pc_not_jump;
 jump a = other;
 bool idright = 1, ifright = 1;
-unsigned char table=3;
+unsigned char table[6];
 bool jump_flag;
 
 int signedextend(int x, int bits)
@@ -116,18 +116,21 @@ void IF()
 			pc = pc - 4 + ifimm;
 			pclock--;
 		}
-		else if (a == branch && ((table & 3) == 2 || (table & 3) == 3))
+		else if (a > 0 && a < 7)
 		{
-			pc_not_jump = pc;
-			pc = pc - 4 + ifimm;//jump
-			pclock--;
-			jump_flag = 1;
-		}
-		else if (a == branch && ((table & 3) == 0 || (table & 3) == 1))
-		{
-			pc_not_jump = pc - 4 + ifimm;//为保持形式统一
-			pclock--;
-			jump_flag = 0;
+			if ((table[a] & 3) == 2 || (table[a] & 3) == 3)
+			{
+				pc_not_jump = pc;
+				pc = pc - 4 + ifimm;//jump
+				pclock--;
+				jump_flag = 1;
+			}
+			if ((table[a] & 3) == 0 || (table[a] & 3) == 1)
+			{
+				pc_not_jump = pc - 4 + ifimm;//为保持形式统一
+				pclock--;
+				jump_flag = 0;
+			}
 		}
 		else return;//jalr
 	}
@@ -148,7 +151,29 @@ void IF()
 		pclock++;
 		if (opcode == 99)
 		{
-			a = branch;
+			switch ((inst >> 12) & 7)
+			{
+			case 0:
+				a = beq;
+				break;
+			case 1:
+				a = bne;
+				break;
+			case 4:
+				a = blt;
+				break;
+			case 5:
+				a = bge;
+				break;
+			case 6:
+				a = bltu;
+				break;
+			case 7:
+				a = bgeu;
+				break;
+			default:
+				break;
+			}
 			success++;
 		}
 		if (opcode == 111)
@@ -540,15 +565,15 @@ void EX()
 		{
 			if (rs1 == rs2)
 			{
-				table <<= 1;
-				table |= 1;
+				table[0] <<= 1;
+				table[0] |= 1;
 				if (jump_flag == 0)
 				{
 					idright = 0;
 				}
 				return;
 			}
-			table <<= 1;
+			table[0] <<= 1;
 			if (jump_flag == 1)
 			{
 				idright = 0;
@@ -560,15 +585,15 @@ void EX()
 		{
 			if (rs1 != rs2)
 			{
-				table <<= 1;
-				table |= 1;
+				table[1] <<= 1;
+				table[1] |= 1;
 				if (jump_flag == 0)
 				{
 					idright = 0;
 				}
 				return;
 			}
-			table <<= 1;
+			table[1] <<= 1;
 			if (jump_flag == 1)
 			{
 				idright = 0;
@@ -580,15 +605,15 @@ void EX()
 		{
 			if (rs1 < rs2)
 			{
-				table <<= 1;
-				table |= 1;
+				table[2] <<= 1;
+				table[2] |= 1;
 				if (jump_flag == 0)
 				{
 					idright = 0;
 				}
 				return;
 			}
-			table <<= 1;
+			table[2] <<= 1;
 			if (jump_flag == 1)
 			{
 				idright = 0;
@@ -601,15 +626,15 @@ void EX()
 		{
 			if (rs1 >= rs2)
 			{
-				table <<= 1;
-				table |= 1;
+				table[3] <<= 1;
+				table[3] |= 1;
 				if (jump_flag == 0)
 				{
 					idright = 0;
 				}
 				return;
 			}
-			table <<= 1;
+			table[3] <<= 1;
 			if (jump_flag == 1)
 			{
 				idright = 0;
@@ -621,15 +646,15 @@ void EX()
 		{
 			if ((unsigned)rs1 < (unsigned)rs2)
 			{
-				table <<= 1;
-				table |= 1;
+				table[4] <<= 1;
+				table[4] |= 1;
 				if (jump_flag == 0)
 				{
 					idright = 0;
 				}
 				return;
 			}
-			table <<= 1;
+			table[4] <<= 1;
 			if (jump_flag == 1)
 			{
 				idright = 0;
@@ -641,15 +666,15 @@ void EX()
 		{
 			if ((unsigned)rs1 >= (unsigned)rs2)
 			{
-				table <<= 1;
-				table |= 1;
+				table[5] <<= 1;
+				table[5] |= 1;
 				if (jump_flag == 0)
 				{
 					idright = 0;
 				}
 				return;
 			}
-			table <<= 1;
+			table[5] <<= 1;
 			if (jump_flag == 1)
 			{
 				idright = 0;
