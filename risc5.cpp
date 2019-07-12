@@ -119,7 +119,7 @@ void IF()
 		}
 		else if (a >= 0 && a <=5)
 		{
-			if ((table[a] & 3) == 2 || (table[a+1] & 3) == 3)
+			if ((table[a] & 3) == 2 || (table[a] & 3) == 3)
 			{
 				if (a == 5)
 					pc += 0;
