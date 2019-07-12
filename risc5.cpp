@@ -17,7 +17,7 @@ int exop, memop, wbop, exf3, exf7, memf3, rd, eximm, memres, wbres, ifimm;//在�
 int rsused = 1, rdused = 1;//防止未使用就被覆盖
 
 int success, fail;
-enum jump { jal, beq, bne, blt, bge, bltu, bgeu, other, jalr };
+enum jump {  beq, bne, blt, bge, bltu, bgeu, other, jalr,jal };
 int pc_not_jump;
 jump a = other;
 bool idright = 1, ifright = 1;
@@ -98,6 +98,7 @@ void read()
 }
 void IF()
 {
+
 	if (ifdone == 1)
 		return;
 	if (ifright == 0)
@@ -116,20 +117,29 @@ void IF()
 			pc = pc - 4 + ifimm;
 			pclock--;
 		}
-		else if (a > 0 && a < 7)
+		else if (a >= 0 && a <=5)
 		{
-			if ((table[a-1] & 3) == 2 || (table[a-1] & 3) == 3)
+			if ((table[a] & 3) == 2 || (table[a+1] & 3) == 3)
 			{
+				if (a == 5)
+					pc += 0;
 				pc_not_jump = pc;
 				pc = pc - 4 + ifimm;//jump
 				pclock--;
 				jump_flag = 1;
 			}
-			if ((table[a-1] & 3) == 0 || (table[a-1] & 3) == 1)
+			else if ((table[a] & 3) == 0 || (table[a] & 3) == 1)
 			{
 				pc_not_jump = pc - 4 + ifimm;//为保持形式统一
 				pclock--;
 				jump_flag = 0;
+			}
+			else
+			{
+				pc_not_jump = pc;
+				pc = pc - 4 + ifimm;//jump
+				pclock--;
+				jump_flag = 1;
 			}
 		}
 		else return;//jalr
@@ -142,13 +152,13 @@ void IF()
 			return;
 		inst += (int)memory[pc + i] << (8 * i);
 	}
-	if (inst == 0xf99ff0ef)
-		inst += 0;
 	ifdone++;
 	opcode = inst & 127;
 	if (opcode == 99 || opcode == 103 || opcode == 111)//99_b-type 103_jalr 111_jal
 	{
 		pclock++;
+
+
 		if (opcode == 99)
 		{
 			switch ((inst >> 12) & 7)
@@ -371,7 +381,7 @@ void ID()
 			iddone++;
 
 			rs1 = r[rs1_index];
-			rsused = 0;
+			//rsused = 0;
 			rd_index = (inst >> 7) & 31;
 			rlock[rd_index]++;
 			rd = rd_index;
@@ -400,7 +410,6 @@ void ID()
 			rlock[rd_index]++;
 			rd = rd_index;
 			rdused = 0;
-			rsused = 0;
 			func3 = (inst >> 12) & 7;
 			exf3 = func3;
 
@@ -565,15 +574,15 @@ void EX()
 		{
 			if (rs1 == rs2)
 			{
-				table[0] <<= 1;
-				table[0] |= 1;
+				table[beq] <<= 1;
+				table[beq] |= 1;
 				if (jump_flag == 0)
 				{
 					idright = 0;
 				}
 				return;
 			}
-			table[0] <<= 1;
+			table[beq] <<= 1;
 			if (jump_flag == 1)
 			{
 				idright = 0;
@@ -585,15 +594,15 @@ void EX()
 		{
 			if (rs1 != rs2)
 			{
-				table[1] <<= 1;
-				table[1] |= 1;
+				table[bne] <<= 1;
+				table[bne] |= 1;
 				if (jump_flag == 0)
 				{
 					idright = 0;
 				}
 				return;
 			}
-			table[1] <<= 1;
+			table[bne] <<= 1;
 			if (jump_flag == 1)
 			{
 				idright = 0;
@@ -605,15 +614,15 @@ void EX()
 		{
 			if (rs1 < rs2)
 			{
-				table[2] <<= 1;
-				table[2] |= 1;
+				table[blt] <<= 1;
+				table[blt] |= 1;
 				if (jump_flag == 0)
 				{
 					idright = 0;
 				}
 				return;
 			}
-			table[2] <<= 1;
+			table[blt] <<= 1;
 			if (jump_flag == 1)
 			{
 				idright = 0;
@@ -626,15 +635,15 @@ void EX()
 		{
 			if (rs1 >= rs2)
 			{
-				table[3] <<= 1;
-				table[3] |= 1;
+				table[bge] <<= 1;
+				table[bge] |= 1;
 				if (jump_flag == 0)
 				{
 					idright = 0;
 				}
 				return;
 			}
-			table[3] <<= 1;
+			table[bge] <<= 1;
 			if (jump_flag == 1)
 			{
 				idright = 0;
@@ -646,15 +655,15 @@ void EX()
 		{
 			if ((unsigned)rs1 < (unsigned)rs2)
 			{
-				table[4] <<= 1;
-				table[4] |= 1;
+				table[bltu] <<= 1;
+				table[bltu] |= 1;
 				if (jump_flag == 0)
 				{
 					idright = 0;
 				}
 				return;
 			}
-			table[4] <<= 1;
+			table[bltu] <<= 1;
 			if (jump_flag == 1)
 			{
 				idright = 0;
@@ -666,15 +675,15 @@ void EX()
 		{
 			if ((unsigned)rs1 >= (unsigned)rs2)
 			{
-				table[5] <<= 1;
-				table[5] |= 1;
+				table[bgeu] <<= 1;
+				table[bgeu] |= 1;
 				if (jump_flag == 0)
 				{
 					idright = 0;
 				}
 				return;
 			}
-			table[5] <<= 1;
+			table[bgeu] <<= 1;
 			if (jump_flag == 1)
 			{
 				idright = 0;
@@ -712,15 +721,15 @@ void EX()
 	case 19://with constant
 	{
 
-		rsused = 1;
+		rsused = 0;
 		switch (exf3)
 		{
+			rsused = 0;
 		case 0://addi
 		{
 			imm = eximm;
 			res = rs1 + imm;
 			wbres = res;
-
 			return;
 		}
 		case 2://slti
@@ -858,9 +867,7 @@ void MEM()
 			memory[res] = rs2 & 255;
 			if (res == 0x30004)
 			{
-				if((r[10]&255)!=92)
 				cout << (unsigned)(r[10] & 255) << '\n';
-				else cout << 159;
 				//cout << (double)success / (success + fail);
 				exit(0);
 			}
@@ -906,7 +913,6 @@ void WB()
 
 		if (rd_index == 0)
 			return;
-
 		r[rd_index] = res;
 		rlock[rd_index]--;
 		return;
