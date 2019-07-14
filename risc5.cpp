@@ -128,7 +128,7 @@ void IF()
 				pclock--;
 				jump_flag = 1;
 			}
-			else if ((table[a] & 3) == 0 || (table[a] & 3) == 1)
+			else if ((table[a+1] & 3) == 0 || (table[a] & 3) == 1)
 			{
 				pc_not_jump = pc - 4 + ifimm;//为保持形式统一
 				pclock--;
